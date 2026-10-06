@@ -1,0 +1,8 @@
+.DS_Store
+*.env
+.env*
+credentials*
+dev-server*
+node_modules/
+work/
+*.log

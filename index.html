@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Jamworks — Planejador de entregáveis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Jamworks">
+          <img class="brand-logo" src="https://jamworks20.vati.rocks/img/logo_jamworks.5730d2f4.svg" alt="Jamworks" width="200" height="28" />
+          <span class="brand-context">Planejador de entregáveis</span>
+        </a>
+        <div class="session-status" id="session-status">
+          <span class="status-dot"></span>
+          <span id="session-label">Verificando sessão</span>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div>
+            <p class="eyebrow">Jobs / Assistente de produção</p>
+            <h1>Planejador de entregáveis</h1>
+            <p class="hero-copy">Selecione a planilha de mídia do Job e revise as sugestões de entregáveis e formatos.</p>
+          </div>
+        </section>
+
+        <section class="notice hidden" id="auth-notice" role="alert">
+          <div>
+            <strong>Token do Jamworks não encontrado.</strong>
+            <p>Abra este app pela Home do Jamworks com sua sessão autenticada.</p>
+          </div>
+        </section>
+
+        <section class="workspace-grid">
+          <aside class="control-panel">
+            <div class="step-block">
+              <div class="step-heading"><span>1</span><div><h2>Job</h2><p>Informe o identificador do trabalho.</p></div></div>
+              <form id="job-form" class="inline-form">
+                <label class="field grow">
+                  <span>ID do Job</span>
+                  <input id="job-id" name="job_id" type="number" min="1" inputmode="numeric" placeholder="ID do Job" required />
+                </label>
+                <button class="button primary" type="submit" id="load-job-button">Carregar</button>
+              </form>
+            </div>
+
+            <div class="step-block disabled" id="spreadsheet-step">
+              <div class="step-heading"><span>2</span><div><h2>Planilha de mídia</h2><p>Escolha uma referência ou informe seu Node ID.</p></div></div>
+              <div id="reference-list" class="reference-list" aria-live="polite"></div>
+              <label class="field">
+                <span>Node ID da planilha</span>
+                <input id="spreadsheet-node-id" type="number" min="1" inputmode="numeric" placeholder="Node ID da referência" />
+              </label>
+            </div>
+
+            <div class="step-block disabled" id="analysis-step">
+              <div class="step-heading"><span>3</span><div><h2>Análise</h2><p>O processamento continua mesmo após a resposta inicial.</p></div></div>
+              <button class="button primary wide" id="analyze-button" type="button">Gerar sugestões</button>
+              <div class="analysis-progress hidden" id="analysis-progress" aria-live="polite">
+                <div class="progress-ring" aria-hidden="true"></div>
+                <div><strong id="progress-title">Preparando análise</strong><p id="progress-copy">Enviando os dados ao fluxo.</p></div>
+              </div>
+            </div>
+
+            <details class="settings">
+              <summary>Configuração técnica</summary>
+              <label class="field">
+                <span>Processador de planilhas (URL completa)</span>
+                <input id="n8n-base-url" type="url" placeholder="https://n8n.exemplo.com/webhook/jw2-deliverables/submit" />
+              </label>
+              <label class="field">
+                <span>Consulta da análise (opcional)</span>
+                <input id="processor-status-endpoint" type="url" placeholder="https://n8n.exemplo.com/webhook/jw2-deliverables/status" />
+              </label>
+            </details>
+          </aside>
+
+          <section class="content-panel">
+            <div class="empty-state" id="empty-state">
+              <div class="empty-icon" aria-hidden="true">⌁</div>
+              <h2>Comece pelo Job</h2>
+              <p>As informações básicas e a pasta de referências aparecerão aqui.</p>
+            </div>
+
+            <div class="job-view hidden" id="job-view">
+              <div class="job-header">
+                <div>
+                  <p class="eyebrow" id="job-code">JOB</p>
+                  <h2 id="job-title">—</h2>
+                </div>
+                <span class="pill" id="job-status">Carregado</span>
+              </div>
+              <dl class="job-facts" id="job-facts"></dl>
+            </div>
+
+            <div class="results-view hidden" id="results-view">
+              <div class="results-toolbar">
+                <div><p class="eyebrow">Sugestões editáveis</p><h2><span id="deliverable-count">0</span> entregáveis</h2></div>
+                <div class="toolbar-actions">
+                  <button class="button ghost" id="add-deliverable-button" type="button">+ Entregável</button>
+                  <button class="button dark" id="copy-json-button" type="button">Copiar JSON</button>
+                  <button class="button primary" id="download-json-button" type="button">Baixar JSON</button>
+                </div>
+              </div>
+              <div class="catalog-notice"><p id="catalog-status" role="status"></p><button id="retry-catalog-button" class="link-button hidden" type="button">Tentar carregar catálogo novamente</button></div>
+              <div id="deliverables-list" class="deliverables-list"></div>
+              <div class="save-panel">
+                <p id="save-status" role="status"></p>
+                <div id="save-progress" class="hidden">
+                  <progress id="save-progress-bar" max="100" value="0" aria-label="Progresso de criação dos itens"></progress>
+                  <p id="save-progress-counts" role="status"></p>
+                  <button id="stop-monitoring-button" class="link-button hidden" type="button">Parar acompanhamento (não cancela a gravação)</button>
+                </div>
+                <div class="toolbar-actions">
+                  <button class="button primary" id="save-button" type="button">Gravar entregáveis no Job</button>
+                  <button class="button ghost hidden" id="verify-button" type="button">Conferir gravação</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <div class="toast hidden" id="toast" role="status"></div>
+    </div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
